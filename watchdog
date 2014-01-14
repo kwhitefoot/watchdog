@@ -1,0 +1,147 @@
+#!/bin/bash
+
+#====================================
+
+# Purpose:
+
+# I have a Python script that uploads to flickr.  On my netbook it
+# fails to resume when the machine comes out of suspend.  Experiments
+# show that sleep does not suffer from this problem.
+
+# The script is inherently restartable so it is safe to kill it and
+# restart.
+
+#--------------------------------------------
+
+# Method:
+# start the process
+# Forever:
+#   s = mtime of a file or zero if the file does not exist.
+#   sleep
+#   f = mtime of same file or zero if the file still does not exist.
+#   If s == f:
+#      kill the process.
+#      sleep 1
+#      start the process
+#   endif
+# loop
+
+# The file used to detect activity can be a file that the process
+# touches as part of its normal operations of the process can be
+# written deliberately to touch a file at intervals for just this
+# purpose.
+
+# The watchdog takes arguments specifying:
+# - the path to the process to be started, 
+# - path to the activity file,
+# - the sleep time
+
+#--------------------------------------------
+
+# Prerequisites
+# 
+
+#set -x
+#set -e
+
+print ()
+{
+    echo "watchdog: $1"
+}
+
+# Kill subprocess on exit.
+trap_exit () 
+{
+    echo ""
+    print "Terminating process"
+    pkill -P $$
+}
+
+trap trap_exit EXIT
+
+show_usage_and_exit ()
+{
+    cat <<EOF
+watchdog, version 1.0
+Usage: watchdog command activity interval
+Where:
+  command is a command line to be executed.  Use quotes if it includes spaces
+  activity is a file to be monitored
+  interval is the number of minutes between checks.
+
+This command executes the specified command and then loops checking to
+see if a file changes.  If the file does not change within the
+specified interval we kill the process and restart it and continue
+checking.
+
+If the command exits normally it will still be restarted as long as the activity file mtime does not change within the interval.
+
+Report bugs to kwhitefoot@hotmail.com.
+EOF
+    
+    exit 1
+}
+
+
+# Check args
+if (( $# != 3 )); then
+    show_usage_and_exit
+fi
+
+# Name the arguments
+cmd=$1
+activity=$2
+sleep_time=$3
+
+if [ "$sleep_time" -eq "$sleep_time" ] 2>/dev/null; then
+    print "Sleep time $sleep_time minutes"
+else
+    print "Sleep time must be an integer number of minutes"
+    show_usage_and_exit
+fi
+
+# Initialize the watched file
+touch "${activity}"
+
+# Start the process and check that it is running.  Abort if we cannot start.
+start_process ()
+{
+    print "starting the process"
+    ${cmd} &
+    pgrep -P $$
+    if [ "$?" -ne "0" ]; then
+        print "failed to start process"
+        show_usage_and_exit
+    fi
+}
+
+# Start the command
+# ${cmd} &
+# pgrep -P $$
+# if [ "$?" -ne "0" ]; then
+#     echo "watchdog failed to start process"
+#     show_usage_and_exit
+# fi
+
+start_process
+
+while [ 1 ]
+do
+    print "Looking for inactivity"
+    find "${activity}" -mmin +$sleep_time | grep ".*"
+    if [ "$?" -eq "0" ]
+    then
+        # Activity file has not changed in the given interval.  This
+        # means that either the program is hanging or that it has
+        # crashed.
+
+        # Kill our children.  This is better than using the pid of the
+        # process that we launch because the id could be re-used.
+        print "Killing hung process"
+        pkill -P $$
+        # Restart the process
+        start_process
+    fi
+    print "sleeping ..."
+    sleep "${sleep_time}m"
+done
