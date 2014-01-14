@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#====================================
+#===================================================================
 
 # Purpose:
 
@@ -44,16 +44,29 @@
 # it unless it is a bare command with no arguments; use ${HOME}
 # instead.  The same applies to the path to the activity file.
 
-#--------------------------------------------
+#---------------------------------------------------------------------
+# Author: Kevin Whitefoot <kwhitefoot@hotmail.com>
+# Created: 2014-01-14
 
-# Prerequisites
-# 
+#---------------------------------------------------------------------
+# Prerequisites:
+
+# bash: Should be trivial to rewrite for other shells, especially bsh
+#       and sh.
+
+# date: only used for timestamping
+
+# find, grep: These are the tools that do the real work.
+
+#===================================================================
 
 #set -x
 #set -e
 
+
 print ()
 {
+    echo "watchdog: $(date +'%F %T')"
     echo "watchdog: $1"
 }
 
@@ -123,37 +136,29 @@ start_process ()
     fi
 }
 
-# Start the command
-# ${cmd} &
-# pgrep -P $$
-# if [ "$?" -ne "0" ]; then
-#     echo "watchdog failed to start process"
-#     show_usage_and_exit
-# fi
-
 start_process
 
 while [ 1 ]
 do
     print "Looking for inactivity"
-    find "${activity}" -mmin +$sleep_time | grep ".*"
-    if [ "$?" -eq "0" ]
+    if find "${activity}" -mmin +$sleep_time | grep ".*" 
     then
         # Activity file has not changed in the given interval.  This
         # means that either the program is hanging or that it has
-        # crashed.
+        # crashed.  Of course it can also mean that it has exited
+        # normally.
 
         # Kill our children.  This is better than using the pid of the
         # process that we launch because the id could be re-used.
         print "Killing hung process"
-	# Actually kill all processes of which this is the parent
-	# which avoids needing to know the child pid and avoids the
-	# risk of pid ecycling.
-        pkill -P $$
-	# Lot's of people recommend this, not sure if it is really
-	# necessary.
-	sleep 1 
-        # Restart the process
+        pkill -P $$     # Actually kill all processes of which this is
+                        # the parent which avoids needing to know the
+                        # child pid and avoids the risk of pid
+                        # recycling.
+
+	sleep 1       	# Lot's of people recommend this, not sure if
+                        # it is really necessary.
+
         start_process
     fi
     print "sleeping ..."
