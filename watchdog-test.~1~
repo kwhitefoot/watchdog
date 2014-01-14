@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#====================================
+# $Id: watchdog-test,v 1.1 2014/01/14 13:24:46 kj Exp $
+
+# $Log: watchdog-test,v $
+# Revision 1.1  2014/01/14 13:24:46  kj
+# Initial revision
+#
+#====================================
+
+# Purpose:
+
+# A simple process that tests the watchdog.  All it does it sleep for
+# two minutes and touch a file in a loop.
+
+while [ 1 ]; do
+    echo "Working, zzzz"
+    sleep 10m
+    echo "Waking up, yawn"
+done
