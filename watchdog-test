@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#====================================
+
+# Purpose:
+
+# A simple process that tests the watchdog.  All it does it sleep for
+# two minutes and touch a file in a loop.
+
+while [ 1 ]; do
+    echo "Working, zzzz"
+    sleep 10m
+    echo "Waking up, yawn"
+done
