@@ -16,14 +16,16 @@
 
 # Method:
 # start the process
+# touch the activity file
 # Forever:
-#   s = mtime of a file or zero if the file does not exist.
-#   sleep
-#   f = mtime of same file or zero if the file still does not exist.
-#   If s == f:
-#      kill the process.
+#   find activity file that has not changed 
+#   If found:
+#      kill all child processes (this means that we do not need to
+#                                record the pid of the child and risk
+#                                pid recycling)
 #      sleep 1
 #      start the process
+#      sleep interval
 #   endif
 # loop
 
@@ -144,7 +146,13 @@ do
         # Kill our children.  This is better than using the pid of the
         # process that we launch because the id could be re-used.
         print "Killing hung process"
+	# Actually kill all processes of which this is the parent
+	# which avoids needing to know the child pid and avoids the
+	# risk of pid ecycling.
         pkill -P $$
+	# Lot's of people recommend this, not sure if it is really
+	# necessary.
+	sleep 1 
         # Restart the process
         start_process
     fi
