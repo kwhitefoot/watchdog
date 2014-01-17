@@ -95,7 +95,9 @@ see if a file changes.  If the file does not change within the
 specified interval we kill the process and restart it and continue
 checking.
 
-If the command exits normally it will still be restarted as long as the activity file mtime does not change within the interval.
+Note that the command will still be restarted even if exits normally
+as long as the activity file mtime does not change within the
+interval.
 
 Report bugs to kwhitefoot@hotmail.com.
 EOF
@@ -121,20 +123,21 @@ else
     show_usage_and_exit
 fi
 
-# Initialize the watched file
-touch "${activity}"
-
-# Start the process and check that it is running.  Abort if we cannot start.
+# Start the process and check that it is running.  Abort if we cannot
+# start.
 start_process ()
 {
     print "starting the process"
     ${cmd} &
-    pgrep -P $$
-    if [ "$?" -ne "0" ]; then
+    if ! pgrep -P $$
+    then
         print "failed to start process"
         show_usage_and_exit
     fi
 }
+
+# Initialize the watched file
+touch "${activity}"
 
 start_process
 
@@ -146,7 +149,7 @@ do
         # Activity file has not changed in the given interval.  This
         # means that either the program is hanging or that it has
         # crashed.  Of course it can also mean that it has exited
-        # normally.
+        # normally; deal with this in a later version.
 
         # Kill our children.  This is better than using the pid of the
         # process that we launch because the id could be re-used.
