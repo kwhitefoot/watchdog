@@ -39,10 +39,10 @@
 # - path to the activity file,
 # - the sleep time in whole minutes
 
-# where the command line can be anything but remember that ~ will not
-# be expanded if you quote it and that you will probably need to quote
-# it unless it is a bare command with no arguments; use ${HOME}
-# instead.  The same applies to the path to the activity file.
+# where the command line can be almost anything but remember that ~
+# will not be expanded if you quote it and that you will probably need
+# to quote it unless it is a bare command with no arguments; use
+# ${HOME} instead.  The same applies to the path to the activity file.
 
 #---------------------------------------------------------------------
 # Author: Kevin Whitefoot <kwhitefoot@hotmail.com>
@@ -51,8 +51,7 @@
 #---------------------------------------------------------------------
 # Prerequisites:
 
-# bash: Should be trivial to rewrite for other shells, especially bsh
-#       and sh.
+# bash: Needs the wait builtin.
 
 # date: only used for timestamping
 
@@ -63,6 +62,12 @@
 #set -x
 #set -e
 
+# exit codes
+EXIT_ARG_COUNT=1
+EXIT_SLEEP_TIME=2
+EXIT_START_FAILED=3
+EXIT_UNKNOWN=4
+exit_status=$EXIT_UNKNOWN
 
 print ()
 {
@@ -71,17 +76,20 @@ print ()
 }
 
 # Kill subprocess on exit.
+# Perhaps we should use kill -- -$BASHPID
 trap_exit () 
 {
     echo ""
-    print "Terminating process"
+    print "Terminating process with exit status $exit_status"
     pkill -P $$
+    exit $exit_status
 }
 
 trap trap_exit EXIT
 
 show_usage_and_exit ()
 {
+    exit_status=$1
     cat <<EOF
 watchdog, version 1.0
 Usage: watchdog command activity interval
@@ -101,14 +109,16 @@ interval.
 
 Report bugs to kwhitefoot@hotmail.com.
 EOF
-    
-    exit 1
+    echo "Exiting with status: $exit_status"
+    exit $exit_status
 }
 
 
 # Check args
 if (( $# != 3 )); then
-    show_usage_and_exit
+    print "Expected 3 arguments."
+    print "Arg count: $#"
+    show_usage_and_exit $EXIT_ARG_COUNT
 fi
 
 # Name the arguments
@@ -120,7 +130,7 @@ if [ "$sleep_time" -eq "$sleep_time" ] 2>/dev/null; then
     print "Sleep time $sleep_time minutes"
 else
     print "Sleep time must be an integer number of minutes"
-    show_usage_and_exit
+    show_usage_and_exit $EXIT_SLEEP_TIME
 fi
 
 # Start the process and check that it is running.  Abort if we cannot
@@ -132,7 +142,7 @@ start_process ()
     if ! pgrep -P $$
     then
         print "failed to start process"
-        show_usage_and_exit
+        show_usage_and_exit $EXIT_START_FAILED
     fi
 }
 
@@ -153,9 +163,8 @@ do
             then
                 # Activity file has not changed in the given interval.
                 # This means that either the program is hanging or
-                # that it has crashed.  Of course it can also mean
-                # that it has exited normally; deal with this in a
-                # later version.
+                # that it has exited.  Of course the exit could be a
+                # crash or a normal exit; the wait handles this.
 
                 # Now kill all processes of which our parent is the
                 # parent which avoids needing to know the child pid
@@ -169,12 +178,14 @@ do
     # Now wait for the first process to exit, the real one.  It will
     # exit for one of three reasons: crash, hang, normal.
     wait %1
-    status=$?
+    exit_status=$?
     # Make sure the subprocess is dead, no zombies. 
     pkill -P $parent_pid
     if [ "$status" -eq "0" ]
     then
         # normal exit
-        exit 0
+        print "Normal exit"
+    else
+        print "Abnormal exit"
     fi
 done
