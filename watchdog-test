@@ -4,11 +4,77 @@
 
 # Purpose:
 
-# A simple process that tests the watchdog.  All it does it sleep for
-# two minutes and touch a file in a loop.
+# Test the watchdog.
 
-while [ 1 ]; do
-    echo "Working, zzzz"
-    sleep 10m
-    echo "Waking up, yawn"
+#====================================
+
+print ()
+{
+    echo "watchdog-test: $(date +'%F %T')"
+    echo "watchdog-test: $1"
+}
+
+declare -A results
+activity=$(mktemp --tmpdir)
+
+print "Expect status = 1 for wrong argument count"
+#watchdog "watchdog-test-non-existent-command" "$activity" 
+
+./watchdog  &
+wait %1
+exit_status=$?
+#print "Exit status: $exit_status"
+if [ "$exit_status" -eq "1" ]
+then
+    result="Passed."
+else
+    result="Failed: expected status=3 but got $exit_status."
+fi
+print "$result"
+results["Argument_count"]="$result"
+
+# print "Expect status = 3 for non-existent commands
+./watchdog "watchdog-test-non-existent-command" "$activity" 1 &
+wait %1
+exit_status=$?
+print "Exit status: $exit_status"
+if [ "$exit_status" -eq "3" ]
+then
+    result="Passed."
+else
+    result="Failed: expected status=3 but got $exit_status."
+fi
+print "$result"
+results["Non-existent command"]="$result"
+
+watchdog "./watchdog-test-proc1" "$activity" 1 &
+wait %1
+exit_status=$?
+print "Exit status: $exit_status"
+if [ "$exit_status" -eq "0" ]
+then
+    result="Passed."
+else
+    result="Failed: expected zero status but got $exit_status."
+fi
+print "$result"
+results["Short and successful"]="$result"
+
+
+#activity=$(mktemp --tmdir)
+#watchdog "test_process 0 $activity" "$activity" 2 &
+#exit_status=$?
+
+
+
+
+# Summarize the results.
+echo
+echo "Results summary"
+echo
+for test_name in "${!results[@]}"
+do
+  echo "Test  : $test_name"
+  echo "Result: ${results["$test_name"]}"
+  echo
 done
